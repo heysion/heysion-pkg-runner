@@ -146,7 +146,7 @@ class CorePkg(Runner):
         DEBUG(False)
         print(real_pkgs)
         for pkg in real_pkgs:
-            cmd = "yum list | grep -i x%s"%pkg
+            cmd = "yum list | grep -i %s"%pkg
             if self.Runshell(cmd)[0]:
                self.InstNeed(pkg)
             else:
