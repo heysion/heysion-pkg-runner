@@ -269,7 +269,7 @@ def worker(pkgname):
                         pkg = work_core._pkg_list.get()
                         if pkg is None:
                             break
-                        work_result_list.append(pool.apply_async(worker,(pkg,)))
+                        work_result_list.append(pool.apply_async(workee,(pkg,)))
                         work_core._pkg_list.task_done()
                     else:
                         break
