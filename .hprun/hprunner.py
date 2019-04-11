@@ -40,7 +40,7 @@ def Fakee(name,notnull=True):
     @faker.setter
     def faker(self,value):
         if value or not notnull:
-            logging.debug("key:{k} v:{v}".format(k=fake_key,v=value))
+            #logging.debug("key:{k} v:{v}".format(k=fake_key,v=value))
             setattr(self,fake_key,value)
         else:
             self.msg = "please set %s !"%name
@@ -59,7 +59,7 @@ def Fakee0(name):
     @faker.setter
     def faker(self,value):
         if os.path.exists(value):
-            logging.debug("key:{k} v:{v}".format(k=fake_key,v=value))
+            #logging.debug("key:{k} v:{v}".format(k=fake_key,v=value))
             setattr(self,fake_key,value)
         else:
             self.msg = "can't found %s !"%name
@@ -95,8 +95,7 @@ class Runner(Errores):
     @staticmethod
     def Runshell(cmd):
         ret = os.system(cmd)
-        #print("DEBUG# Runshell : %s %d %d [%d]"%(cmd,ret,ret%255,os.getpid()))
-        logging.debug("cmd: %s (ret :%d)"%(cmd,ret))
+        logging.debug("Running cmd: %s (ret :%d)"%(cmd,ret))
         if ret%255 == 0:
             return (True,"OK")
         else:
@@ -109,7 +108,7 @@ class Runner(Errores):
                                   universal_newlines=True,
                                   stderr=subprocess.STDOUT)
 
-        logging.debug("cmd: {c} (ret:{r})".format(c=cmd,r=output.returncode))
+        logging.debug("Running cmd: {c} (ret:{r})".format(c=cmd,r=output.returncode))
         if output.returncode is not 0:
             return (False,output.communicate()[0])
         else:
@@ -124,7 +123,7 @@ class Runner(Errores):
                                   stderr=subprocess.STDOUT)
         
         rc = output.communicate()[0].split("\n")
-        logging.debug("cmd: {c} (ret:{x}{r})".format(c=cmd,r=rc,x=output.returncode))
+        logging.debug("Running cmd: {c} (ret:{x}{r})".format(c=cmd,r=rc,x=output.returncode))
         if output.returncode is not 0:
             return (False,rc)
         else:
@@ -135,7 +134,7 @@ class CorePkg(Runner):
         self.Runshell("rpm -ivh %s"%self.srpm)
 
     def InstOrpm(self):
-        self.Runshell("echo test")
+        self.Runshell("echo FIXME")
 
     def InstallOALL(self,pkg):
         rc = self.Runpipe0(cmd='''find %s/%s/ -name "*.rpm" | grep -i %s '''%(self._srpmbuild,"RPMS",pkg))
@@ -146,7 +145,7 @@ class CorePkg(Runner):
         return True
 
     def InstNeed(self,pkg):
-        self.Runshell("sudo yum install %s -y |& tee -a %s/.log/inst-%s"%(pkg,self._buildroot,pkg))
+        self.Runshell("sudo yum install %s -y |& tee %s/.log/inst-%s"%(pkg,self._buildroot,pkg))
 
     def BuildRpm(self,spec,pkg):
         rc = self.Runpipe0(cmd = "rpmbuild -ba %s |& tee %s/.log/build-%s"%(spec,self._buildroot,pkg))
@@ -171,7 +170,7 @@ class CorePkg(Runner):
                 
     def CheckNeedpkg(self):
         real_pkgs = []
-        logging.debug("need orig pkgs {pkgs}".format(pkgs=self.need_pkg))
+        logging.info("Need orig pkgs {pkgs}".format(pkgs=self.need_pkg))
         for pkg in self.need_pkg:
            if  pkg in _repo_metadata_pkgs["provides"]:
                real_pkgs.append(_repo_metadata_pkgs["provides"].get(pkg))
@@ -191,16 +190,17 @@ class CorePkg(Runner):
                                                                   self.orig_srpm.replace(self.release,"*"),
                                                                   self.pkgname))
         if rc:
-           self.srpm = self.output[0][0]
+            logging.debug("{0} found srpm list:{1}\n will got top 1 in list".format(self.pkgname,output))
+            self.srpm = output[0][0]
         else:
             math  = self.orig_srpm.replace(self.release,"*")
             rc,output = self.Runpipe0('find %s -name "%s" | grep %s'%(self._srpmroot,
                                                                       math.replace(self.version,"*"),
                                                                       self.pkgname))
-            #rc,output = self.Runpipe0('find %s -name "%s"'%(self._srpmroot,))
-            logging.debug(rc)
+
             if rc:
-                self.srpm = self.output[0][0]
+                logging.debug("{0} found srpm list:{1}\n will got top 1 in list".format(self.pkgname,output))
+                self.srpm = output[0][0]
             else:
                 self.msg = "can't found %s srpm"%self.pkgname
                 self.state = False
@@ -239,15 +239,15 @@ class WorkCore(CorePkg):
         pass
         
         self._wid = wid
-        os.environ["hpsrpms"]="/mnt/srpm"
-        os.environ["hpbuild"]="/home/deepin/rpmbuild"
-        os.environ["hproot"]="/home/deepin/.hp"
+        # os.environ["hpsrpms"]="/mnt/srpm"
+        # os.environ["hpbuild"]="/home/deepin/rpmbuild"
+        # os.environ["hproot"]="/home/deepin/.hp"
         self._srpmroot = os.environ.get("hpsrpms")
         self._srpmbuild = os.environ.get("hpbuild")
         self._buildroot = os.environ.get("hproot")
-        logging.debug(self._srpmroot)
-        logging.debug(self._srpmbuild)
-        logging.debug(self._buildroot)
+        logging.debug("fetch rpms dir on {0},work in {1} ,save log to {2}".format(self._srpmroot,
+                                                                                  self._srpmbuild,
+                                                                                  self._buildroot))
         self._pkg_list = queue.Queue()
         self._pkg_err_list = queue.LifoQueue()
 
@@ -280,13 +280,12 @@ def _init_work_core(core):
         core.spec = "%s/SPECS/%s"%(core._srpmbuild,core._orig_spec)
         return True
     except Errores as e:
-        logging.debug("init {e}".format(e=e))
+        logging.debug("Error {e}".format(e=e))
         return False
     pass
 
 def workee(pkgname):
-    logging.info("workee: %d start %s"%(os.getpid(),pkgname))
-    wid = 3
+    logging.info("Workee: %d start %s"%(os.getpid(),pkgname))
     work_core = WorkCore(pkgname,wid=3)
     try:
         if _init_work_core(core=work_core):
@@ -300,21 +299,20 @@ def workee(pkgname):
         else:
             return (True,os.getpid())
     except Errores as e:
-        logging.debug("workee {e}".format(e=e))
+        logging.info("Workee Errors {e}".format(e=e))
         return (False,os.getpid())
     except Exception as e:
-        logging.debug("workee {e}".format(e=e))
+        logging.info("Workee Errors {e}".format(e=e))
         return (False,os.getpid())
     return (False,os.getpid())
 
 def worker(pkgname):
-    logging.info("worker: %d start %s"%(os.getpid(),pkgname))
-    wid = 2
+    logging.info("Worker: %d start %s"%(os.getpid(),pkgname))
     work_core = WorkCore(pkgname,wid=2)
     try:
         if _init_work_core(core=work_core):
             work_core.CheckNeedpkg()
-            logging.debug("worker: {pkg} need {pkglist}".format(pkg=pkgname,pkglist=work_core._pkg_list))
+            logging.debug("Worker: {pkg} need {pkglist}".format(pkg=pkgname,pkglist=work_core.need_pkg))
             if work_core._pkg_list.empty():
                 work_core.BuildRpmOnly(work_core.spec,pkgname)
             else:
@@ -323,7 +321,7 @@ def worker(pkgname):
                 while True:
                     if not work_core._pkg_list.empty():
                         pkg = work_core._pkg_list.get()
-                        logging.debug("worker: %s need %s"%(pkgname,pkg))
+                        logging.debug("Worker: %s need %s"%(pkgname,pkg))
                         if pkg is None:
                             break
                         work_result_list.append(pool.apply_async(workee,(pkg,)))
@@ -331,7 +329,7 @@ def worker(pkgname):
                         continue
                     else:
                         break
-                    logging.debug("worker: %s have not need pkg"%(pkgname))
+                    logging.debug("Worker: %s have not need pkg"%(pkgname))
                 pool.close()
                 pool.join()
                 rc,pid = (False,0)
@@ -339,50 +337,48 @@ def worker(pkgname):
                     rc_orig = value.get()
                     if rc_orig:
                         rc,pid = rc_orig
-                        logging.debug("worker: %d state %s"%(pid,rc))
+                        logging.debug("Worker: %d state %s"%(pid,rc))
                         if not rc:
                             work_core._pkg_err_list(pkg)
-                    logging.info("worker {p} task#{idex} result:{r}".format(idex=index, r=rc, p=pid ))
+                    logging.info("Worker {p} task#{idex} result:{r}".format(idex=index, r=rc, p=pid ))
                 work_core.BuildRpmForce(work_core.spec,pkgname)
             work_core.InstallOALL(pkgname)
             return (True,os.getpid())
         return (True,os.getpid())
     except Errores as e:
-        logging.debug("worker {e}".format(e=e))
+        logging.info("Worker Errors {e}".format(e=e))
         return (False,os.getpid())
     except Exception as e:
-        logging.debug("worker {e}".format(e=e))
+        logging.info("Worker Errors {e}".format(e=e))
         return (False,os.getpid())
     return (True,os.getpid())
 
 def runner():
-    if len(sys.argv) == 2:
-        pass
-    else:
-        print("%s pkgname"%sys.argv[0])
-        pass
+    if not len(sys.argv) == 2:
+        logging.info("Runner: {0} start".format(sys.argv))
+        raise Errors("Please read spec or configure !")
+        return
     global _repo_metadata_pkgs
     pkg_name = sys.argv[1]
-    #pkg_name = "atk"
     _repo_metadata_pkgs = Loadfile("centosv7.bson")
-    test = WorkCore(pkgname=pkg_name,wid=0)
+    run_build = WorkCore(pkgname=pkg_name,wid=0)
     try:
-        test.Init()
-        test.CheckNeedpkg()
+        run_build.Init()
+        run_build.CheckNeedpkg()
         
-        if test._pkg_list.empty():
-            test.BuildRpmOnly(test.spec,pkg_name)
+        if run_build._pkg_list.empty():
+            run_build.BuildRpmOnly(run_build.spec,pkg_name)
         else:
             pool = Pool(processes=4)
             work_result_list = []
             startTime = datetime.datetime.now()
             while True:
-                if not test._pkg_list.empty():
-                    pkg = test._pkg_list.get()
+                if not run_build._pkg_list.empty():
+                    pkg = run_build._pkg_list.get()
                     if pkg is None:
                         break
                     work_result_list.append(pool.apply_async(worker,(pkg,)))
-                    test._pkg_list.task_done()
+                    run_build._pkg_list.task_done()
                 else:
                     break
                 time.sleep(1)
@@ -396,10 +392,10 @@ def runner():
                     rc,pid = rc_orig
                 logging.info("runner {p} task#{idex} result:{r}".format(idex=index, r=rc, p=pid ))
             print(datetime.datetime.now() - startTime)
-        test.BuildRpmForce(test.spec,pkg_name)
-        test.InstallOALL(pkg_name)
+        run_build.BuildRpmForce(run_build.spec,pkg_name)
+        run_build.InstallOALL(pkg_name)
     except Errores as e:
-        print(e.msg)
+        logging.info("Runner Errors {e}".format(e=e))
 
 
 if __name__ == "__main__":
