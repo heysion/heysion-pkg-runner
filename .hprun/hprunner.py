@@ -191,7 +191,7 @@ class CorePkg(Runner):
                                                                   self.pkgname))
         if rc:
             logging.debug("{0} found srpm list:{1}\n will got top 1 in list".format(self.pkgname,output))
-            self.srpm = output[0][0]
+            self.srpm = output[0]
         else:
             math  = self.orig_srpm.replace(self.release,"*")
             rc,output = self.Runpipe0('find %s -name "%s" | grep %s'%(self._srpmroot,
@@ -200,7 +200,7 @@ class CorePkg(Runner):
 
             if rc:
                 logging.debug("{0} found srpm list:{1}\n will got top 1 in list".format(self.pkgname,output))
-                self.srpm = output[0][0]
+                self.srpm = output[0]
             else:
                 self.msg = "can't found %s srpm"%self.pkgname
                 self.state = False
